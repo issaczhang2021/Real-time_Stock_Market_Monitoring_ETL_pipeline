@@ -1,0 +1,75 @@
+version: '3'
+
+services:
+  local-spark:
+    image: local-spark
+    container_name: local-spark
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    environment:
+      METADATA_DRIVERNAME: postgresql
+      METADATA_HOST: postgres
+      METADATA_PORT: '5435'
+      METADATA_USERNAME: spark
+      METADATA_PASSWORD: spark
+      METADATA_DATABASE: spark
+      PREFECT_API_URL: http://server:4200/api
+    volumes:
+      - ./godata2023:/opt/spark/work-dir/godata2023
+
+  minio:
+    image: 'minio/minio:RELEASE.2023-07-21T21-12-44Z'
+    hostname: minio
+    container_name: minio
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    environment:
+      MINIO_ACCESS_KEY: godata2023
+      MINIO_SECRET_KEY: godata2023
+    command: server --console-address ":9001" /data
+
+  createbuckets:
+    image: minio/mc
+    container_name: createbuckets
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c " /usr/bin/mc config host add myminio http://minio:9000 godata2023 godata2023; /usr/bin/mc rm -r --force myminio/godata2023; /usr/bin/mc mb myminio/godata2023; /usr/bin/mc policy download myminio/godata2023; exit 0; "
+  
+  database:
+    image: postgres:15.2-alpine
+    container_name: prefect-db
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=prefect
+    expose:
+      - 5432
+    volumes: 
+      - db:/var/lib/postgresql/data
+
+### Prefect Server API and UI
+  server:
+    image: prefecthq/prefect:2.20-python3.9
+    container_name: prefect-server
+    restart: always
+    volumes:
+      - prefect:/root/.prefect
+      - ./godata2023:/opt/prefect/work-dir/godata2023
+    entrypoint: ["/opt/prefect/entrypoint.sh", "prefect", "server", "start"]
+    environment:
+      - PREFECT_UI_URL=http://127.0.0.1:4200/api
+      - PREFECT_API_URL=http://127.0.0.1:4200/api
+      - PREFECT_SERVER_API_HOST=0.0.0.0
+      - PREFECT_API_DATABASE_CONNECTION_URL=postgresql+asyncpg://postgres:postgres@database:5432/prefect
+    ports:
+      - 4200:4200
+    depends_on:
+      - database
+
+volumes:
+  prefect:
+  db:
