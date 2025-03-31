@@ -2,7 +2,6 @@ import requests
 import pandas as pd
 import csv
 from datetime import datetime
-from api_factory import APIHandler
 import json
 
 # base_url = 'https://www.alphavantage.co/query?'
