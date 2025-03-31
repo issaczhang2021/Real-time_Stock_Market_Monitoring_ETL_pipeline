@@ -82,4 +82,7 @@ def normalize_events_to_csv(data):
 
 
 if __name__ == '__main__':
-    pass
+    trade_api = APIHandler(request_params=nvd_params)
+    api_endpoint = trade_api.get_endpoint()
+    data = trade_api.request_data(api_endpoint)
+    normalize_events_to_csv(data)
