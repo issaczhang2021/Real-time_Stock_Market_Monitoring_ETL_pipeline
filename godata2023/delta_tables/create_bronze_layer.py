@@ -35,15 +35,20 @@ def drop_tables(
 
 
 if __name__ == '__main__':
-    spark = (
-        SparkSession.builder.appName("{database}_ddl")
-        .config("spark.executor.cores", "1")
-        .config(
-            "spark.executor.instances",
-            "1",
-        )
-        .enableHiveSupport()
-        .getOrCreate()
-    )
+    spark = SparkSession.builder \
+    .appName("ddl") \
+    .master('local[*]') \
+    .config("spark.jars.packages", "io.delta:delta-core_2.12:2.3.0,org.apache.hadoop:hadoop-aws:3.3.2") \
+    .config("spark.databricks.delta.retentionDurationCheck.enabled", "false") \
+    .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
+    .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
+    .config("spark.hadoop.fs.s3a.access.key", "godata2023") \
+    .config("spark.hadoop.fs.s3a.secret.key", "godata2023") \
+    .config("spark.hadoop.fs.s3a.endpoint", "http://minio:9000") \
+    .config("spark.hadoop.fs.s3a.region", "us-east-1") \
+    .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem") \
+    .config("spark.hadoop.fs.s3a.path.style.access", "true") \
+    .enableHiveSupport() \
+    .getOrCreate()
     drop_tables(spark)
     create_tables(spark)
