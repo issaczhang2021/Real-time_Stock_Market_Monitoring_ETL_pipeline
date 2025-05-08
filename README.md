@@ -87,7 +87,7 @@ This project uses a structured Lakehouse model to enable scalable analytics and 
 ---
 
 ## 🎯 4. Design FAQ
-This project reflects key architectural and operational decisions commonly explored in data engineering interviews, implemented as follows:
+This project reflects key architectural and operational decisions as follows:
 
 - **Data Quality Assurance**  
   Data quality is enforced using a YAML-based rule system that supports null checks, range validation, and type enforcement. These rules are embedded directly into the ETL workflow and trigger failure handling logic when violated.
