@@ -1,0 +1,9 @@
+checks for trade:
+  - row_count > 0
+  - missing_count(trade_timestamp) = 0
+  - missing_count(batch_id) = 0
+  - schema:
+      fail:
+         when required column missing: [batch_id, trade_timestamp, symbol]
+  - min(low):
+      warn: when < 100

@@ -6,8 +6,11 @@ USER root
 COPY ./requirements.txt ./
 RUN pip install -r requirements.txt
 
+COPY setup.sh /usr/src/app/setup.sh
+RUN chmod +x /usr/src/app/setup.sh
+
 # Create the log file to be able to run tail
 RUN touch /var/log/cron.log
 
 # Run cron
-ENTRYPOINT ["tail", "-f", "/dev/null"]
+ENTRYPOINT ["/usr/src/app/setup.sh"]
