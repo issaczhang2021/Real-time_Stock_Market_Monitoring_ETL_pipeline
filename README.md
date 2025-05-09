@@ -82,7 +82,7 @@ This project uses a structured Lakehouse model to enable scalable analytics and 
 - **BI View**: A materialized view for Power BI/Tableau with fields like `volatility_score`, `7d_avg`, `price_change_pct`
 
 ### 🖥️ Architecture Diagram
-![Stock ETL Data Model](https://github.com/issaczhang2021/spark_etl_JZ/raw/master/Github.png)
+![Stock ETL Data Model](https://github.com/issaczhang2021/Real-time_Stock_Market_Monitoring_ETL_pipeline/raw/master/Github.png)
 
 ---
 
