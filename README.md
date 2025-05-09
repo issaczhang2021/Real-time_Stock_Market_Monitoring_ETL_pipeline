@@ -168,8 +168,8 @@ spark_etl_JZ/
 
 ## 🚀 9. Quick Start
 ```bash
-git clone https://github.com/issaczhang2021/spark_etl_JZ
-cd spark_etl_JZ
+git clone https://github.com/issaczhang2021/Real-time_Stock_Market_Monitoring_ETL_pipeline
+cd Real-time_Stock_Market_Monitoring_ETL_pipeline
 docker-compose build
 ```
 
