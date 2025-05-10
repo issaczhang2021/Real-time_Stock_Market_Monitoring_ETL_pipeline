@@ -8,21 +8,15 @@ This document describes how to deploy the `Real-time_Stock_Market_Monitoring_ETL
 ## 🧠 Why Use AWS Serverless for This Project?
 
 ### ✅ Real-Time Data Capture
-
-- You want to **fetch the most recent stock prices every minute** and make them immediately available for analytics or alerting.
+- Continuously fetch updated stock prices every **minute** from public APIs (e.g., Alpha Vantage).
+- Immediately store and track market insights with low latency.
 
 ### ✅ Cost-Effective
+- Use **AWS Free Tier**: Lambda, S3, EventBridge, Glue (all have generous free limits).
 
-- With **AWS Free Tier**, most services like Lambda, S3, EventBridge, and Glue offer generous free limits.
-
-### ✅ Scalability & Resilience
-
-- Lambda functions scale automatically with traffic and fail independently.
-- S3 ensures durable storage and integrates easily with analytics tools.
-
-### ✅ No Server Management
-
-- No need to manage EC2, cron jobs, or daemons. AWS services handle infrastructure concerns automatically.
+### ✅ Scalable & Serverless
+- No infrastructure to manage.
+- Fully managed execution, monitoring, and scaling handled by AWS.
 
 ---
 
@@ -33,7 +27,7 @@ EventBridge (Every 1 min)
        ↓
  AWS Lambda (fetch_stock_data.py)
        ↓
-Stock Market API (e.g., Alpha Vantage)
+Stock API (e.g., Alpha Vantage)
        ↓
 Amazon S3 (Raw JSON: stock-raw-data/)
        ↓
@@ -41,7 +35,7 @@ Amazon S3 (Raw JSON: stock-raw-data/)
        ↓
 Amazon S3 (Cleaned Parquet: stock-cleaned-data/)
        ↓
-Downstream: Power BI, QuickSight, Athena
+Power BI / QuickSight / Athena
 ```
 
 ---
@@ -50,33 +44,34 @@ Downstream: Power BI, QuickSight, Athena
 
 ### Step 1: Package the Lambda Function
 
-**Potential issue**: Lambda has a size limit (50MB zipped). If your `fetch_stock_data.py` uses external libraries like `requests`, you must package them properly.
-
 ```bash
-mkdir lambda_package
-cp fetch_stock_data.py lambda_package/
-pip install requests -t lambda_package/
-cd lambda_package
-zip -r ../lambda_function.zip .
+cd godata2023/AWS\ Deployment
+bash deploy/build_lambda_package.sh
 ```
 
-> ✅ **Tip**: Use Docker-based builds if you need to support native binaries (e.g., `pandas`, `numpy`).
+This will:
+- Copy `fetch_stock_data.py`
+- Install `requests` and `boto3` into a temp folder
+- Zip everything into `lambda_function.zip`
 
 ---
 
 ### Step 2: Deploy to AWS Lambda
 
 ```bash
-aws lambda create-function   --function-name StockDataFetcher   --runtime python3.9   --role arn:aws:iam::<your-account-id>:role/<lambda-role>   --handler fetch_stock_data.lambda_handler   --zip-file fileb://lambda_function.zip
+bash deploy/deploy_lambda.sh
 ```
 
-> ✅ **Tip**: You must create the IAM role with proper policies first (see below).
+This script will:
+- Create an IAM role and attach `lambda_iam_policy.json`
+- Deploy the Lambda function using `lambda_function.zip`
+- Set handler to `fetch_stock_data.lambda_handler`
 
 ---
 
 ### Step 3: IAM Role Permissions
 
-Attach this policy to your Lambda IAM Role:
+**deploy/lambda_iam_policy.json**
 
 ```json
 {
@@ -96,38 +91,27 @@ Attach this policy to your Lambda IAM Role:
 }
 ```
 
-**Potential issue**: Without the correct permissions, Lambda will silently fail or log `AccessDenied` errors. Check CloudWatch Logs for troubleshooting.
-
 ---
 
-### Step 4: Schedule Lambda with EventBridge
+### Step 4: Schedule with EventBridge
 
 ```bash
-# Create a 1-minute trigger
-aws events put-rule   --name FetchStockDataEveryMinute   --schedule-expression "rate(1 minute)"
-
-# Give EventBridge permission to invoke Lambda
-aws lambda add-permission   --function-name StockDataFetcher   --statement-id EventBridgePermission   --action lambda:InvokeFunction   --principal events.amazonaws.com   --source-arn arn:aws:events:<region>:<account-id>:rule/FetchStockDataEveryMinute
-
-# Set the EventBridge rule to target Lambda
-aws events put-targets   --rule FetchStockDataEveryMinute   --targets "Id"="1","Arn"="arn:aws:lambda:<region>:<account-id>:function:StockDataFetcher"
+bash deploy/create_eventbridge_rule.sh
 ```
 
-> ✅ **Tip**: Test with manual `Invoke` first before automating with EventBridge.
+This will:
+- Create a 1-minute cron rule
+- Authorize EventBridge to trigger your Lambda
+- Set EventBridge target to your Lambda function
 
 ---
 
-## 🧪 Optional: Glue Job for Downstream Processing
+## 🧪 Optional: Run Glue Job for Batch Processing
 
-When your raw data accumulates in S3, you can use AWS Glue to:
-
-- Clean missing fields
-- Convert JSON to Parquet
-- Partition data for faster analytics
-
-### Sample Glue Script (`glue_etl_job.py`)
+If you want to clean and convert raw stock JSON data from S3:
 
 ```python
+# glue_etl_job.py
 from awsglue.context import GlueContext
 from pyspark.context import SparkContext
 
@@ -138,7 +122,6 @@ df = glueContext.create_dynamic_frame.from_options(
     format="json"
 )
 df_clean = df.drop_null_fields().drop_duplicates()
-
 glueContext.write_dynamic_frame.from_options(
     frame=df_clean,
     connection_type="s3",
@@ -147,35 +130,35 @@ glueContext.write_dynamic_frame.from_options(
 )
 ```
 
-> **Potential issue**: Glue's default IAM role must have `S3:Read/Write` permissions for both raw and cleaned paths.
+> ✅ Run this manually or set up Glue scheduling if needed.
 
 ---
 
-## 🔎 Monitoring & Debugging
+## 🔎 Monitoring
 
-- View function logs in **CloudWatch → Log Groups → /aws/lambda/StockDataFetcher**
-- Use **`test event`** in Lambda console for manual runs
-- Monitor scheduled triggers in **EventBridge > Rules > Metrics**
+- Lambda Logs: **CloudWatch → /aws/lambda/StockDataFetcher**
+- Scheduled Rule: **Amazon EventBridge → Rules**
+- Glue Logs: **AWS Glue → Jobs → Run history**
 
 ---
 
-## 💰 Cost Consideration
+## 💰 Cost Summary
 
-| Service     | AWS Free Tier                   |
-|-------------|----------------------------------|
-| Lambda      | 1 million free invocations/month |
-| S3          | 5 GB standard free storage       |
-| Glue        | 10 free DPU hours/month          |
-| EventBridge | 100,000 invocations/month        |
+| Service     | Free Tier                   |
+|-------------|-----------------------------|
+| Lambda      | 1M invocations/month         |
+| S3          | 5GB storage/month            |
+| Glue        | 10 DPU hours/month           |
+| EventBridge | 100k invocations/month       |
 
 ---
 
 ## 🧼 Best Practices
 
-- Rotate your API keys securely with Secrets Manager or Lambda env variables
-- Implement deduplication in case the same data is fetched twice
-- Consider alerting if API response fails or returns null
+- Use environment variables for API keys (e.g., Alpha Vantage)
+- Alert on Lambda failures using CloudWatch Alarms
+- Set lifecycle rules on your S3 bucket to manage old raw data
 
 ---
 
-For questions or suggestions, feel free to open an issue or contact [@issaczhang2021](https://github.com/issaczhang2021).
+For help or questions, open an issue or contact [@issaczhang2021](https://github.com/issaczhang2021).
