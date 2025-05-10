@@ -1,5 +1,5 @@
 
-# 🧭 AWS Deployment Guide for Real-Time Stock ETL Pipeline
+# 🧭 AWS Deployment for Real-Time Stock ETL Pipeline
 
 This document describes how to deploy the `Real-time_Stock_Market_Monitoring_ETL_pipeline` on AWS to support **1-minute interval real-time data ingestion**, using a fully managed, serverless architecture.
 
