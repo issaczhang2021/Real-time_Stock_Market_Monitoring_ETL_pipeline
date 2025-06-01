@@ -21,6 +21,25 @@ In the world of quantitative finance, timely access to high-quality trading data
 - Orchestration using Prefect with retry, alerting, and logging
 - Full containerization and reproducibility using Docker
 
+## ⏱ Why Use a 5-Minute Interval?
+
+When ingesting intraday stock data via Alpha Vantage, there are multiple interval options (1min, 5min, 15min, etc.). We chose **5 minutes** for the following main reasons:
+
+- **Balance Between Granularity and Volume**  
+  - 1-minute data offers higher time resolution but significantly increases data volume and storage costs.  
+  - Intervals of 15 minutes or longer cannot capture short-term price fluctuations in a timely manner, which may not suit real-time monitoring and signal generation.  
+  - A 5-minute interval strikes a balance between “detail” and “data/storage/compute cost,” allowing us to track sufficient price movements without overloading the system.
+
+- **API Rate Limits and Call Frequency**  
+  - Alpha Vantage imposes rate limits on free/low-tier API keys (typically 5 calls per minute).  
+  - Fetching 1-minute data requires more frequent polling, increasing the chance of hitting rate limits and triggering throttling.  
+  - Using a 5-minute interval reduces call frequency, enabling near-real-time updates while remaining more stable over the long run.
+
+- **Alignment with Common Quant Strategies**  
+  - Most short-term strategies (e.g., momentum breakouts, moving average crossovers) already work well with 5-minute data.  
+  - Generating signals and alerts off 5-minute intervals aligns with typical “intraday” monitoring use cases.
+
+
 ## 🌐 Public Data Source
 
 All stock market data in this project is sourced from the [Alphavantage API](https://www.alphavantage.co/), a publicly available financial data provider.
