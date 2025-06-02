@@ -26,8 +26,28 @@ In the world of quantitative finance, timely access to high-quality trading data
 This project is organized into two distinct phases to balance development speed, cost control, and production readiness:
 
 > **Why split into two phases?**  
-> Phase 1 focuses on validating architecture and core logic in a low-cost, open-source environment (MinIO, Prefect, PySpark) so we can iterate quickly without incurring excessive cloud fees. Once the design is proven, Phase 2 migrates the pipeline to AWS for production‐grade needs—real-time (1-minute) ingestion, serverless scaling, SLA compliance, and seamless integration with BI/ML services.
+> Phase 1 focuses on validating architecture and core logic in a low-cost, open-source environment (MinIO, Prefect, PySpark) so we can iterate quickly without incurring excessive cloud fees. Once the design is proven, Phase 2 migrates the pipeline to AWS for production‐grade needs—supporting serverless scaling, SLA compliance, and seamless integration with BI/ML services.
+
 ---
+### Business Considerations for Phase 2 AWS Deployment
+
+The choice of AWS services and ingestion interval should be aligned with enterprise-specific factors such as:
+
+- **Budget Constraints:**  
+  Serverless architectures (Lambda, Glue, Athena) provide pay-per-use pricing, ideal for organizations seeking cost control and elasticity without upfront infrastructure investment.
+
+- **Data Freshness Requirements:**  
+  For firms requiring near real-time analytics (e.g., minute-level), shorter invocation intervals can be used, balancing frequency and cost. For less time-sensitive analytics, longer intervals (e.g., 5 minutes) reduce cost and operational complexity.
+
+- **Operational Complexity and Reliability:**  
+  Glue’s batch-oriented ETL simplifies data processing pipelines, favoring stability and maintainability over ultra-low latency streaming.
+
+- **Scalability Needs:**  
+  Managed services scale transparently with demand, benefiting businesses with variable or growing data volumes.
+
+  This flexible design approach demonstrates a practical understanding of how to deploy data pipelines that fit diverse business priorities—from startups controlling cloud spend to enterprises demanding real-time SLA compliance.
+---
+
 ### Phase 1: Prototype & Validation (5-Minute Interval Pipeline)
 - **Goal**: Quickly build a proof-of-concept (POC) using open-source tools to validate overall design, test ingestion/transformation logic, and control costs.
 - **Key Activities**:
@@ -39,34 +59,20 @@ This project is organized into two distinct phases to balance development speed,
   - Integrated Soda Core for data quality checks (freshness, null rates, duplication) via YAML-defined scan definitions.
   - Containerized the entire pipeline using Docker Compose to ensure a reproducible dev environment compatible with future AWS migration.
 
-### Phase 2: AWS Migration & Productionization (1-Minute Interval)
-- **Goal**: Migrate the validated prototype to a serverless, fully managed AWS architecture for real-time, elastic, and SLA-compliant operations.
+### Phase 2: AWS Migration & Productionization (Configurable Interval)
+- **Goal**: Migrate the validated prototype to a serverless, fully managed AWS architecture for elastic, SLA-compliant operations with flexible ingestion intervals according to business needs.
 - **Key Activities**:
-  - Refactored the Python API handler into an AWS Lambda function triggered by EventBridge (supporting 1-minute interval ingestion).
-  - Deployed transformation logic to AWS Glue (PySpark) with Delta Lake on S3, enabling serverless processing and scalable late-arriving data correction.
+  - Refactored the Python API handler into an AWS Lambda function triggered by EventBridge, allowing configurable invocation intervals (e.g., 1-minute or 5-minute) based on workload and budget.
+  - Deployed transformation logic to AWS Glue (PySpark) with Delta Lake on S3, enabling serverless batch or micro-batch processing and scalable late-arriving data correction.  
+    **Note:** AWS Glue is optimized for batch/micro-batch ETL workloads rather than continuous streaming. For true streaming or sub-minute latency, streaming services like Amazon Kinesis or MSK are recommended.
   - Reused Soda YAML scan checks on Athena tables to enforce data freshness, duplication prevention, and schema consistency in production.
   - Provided downstream analytics endpoints via Athena and QuickSight for Gold-layer factor dashboards, quantitative signals, and ML retraining pipelines.
-  - Ensured cost efficiency and operational scalability by leveraging Lambda, Glue, S3, EventBridge, and Athena in a pay-per-use serverless setup.
+  - Ensured cost efficiency and operational scalability by leveraging AWS managed services, making the architecture suitable for businesses with variable budget scales and compliance requirements.
+
+---
 
 
 
-## ⏱ Why Use a 5-Minute Interval?
-
-When ingesting intraday stock data via Alpha Vantage, there are multiple interval options (1min, 5min, 15min, etc.). We chose **5 minutes** for the following main reasons:
-
-- **Balance Between Granularity and Volume**  
-  - 1-minute data offers higher time resolution but significantly increases data volume and storage costs.  
-  - Intervals of 15 minutes or longer cannot capture short-term price fluctuations in a timely manner, which may not suit real-time monitoring and signal generation.  
-  - A 5-minute interval strikes a balance between “detail” and “data/storage/compute cost,” allowing us to track sufficient price movements without overloading the system.
-
-- **API Rate Limits and Call Frequency**  
-  - Alpha Vantage imposes rate limits on free/low-tier API keys (typically 5 calls per minute).  
-  - Fetching 1-minute data requires more frequent polling, increasing the chance of hitting rate limits and triggering throttling.  
-  - Using a 5-minute interval reduces call frequency, enabling near-real-time updates while remaining more stable over the long run.
-
-- **Alignment with Common Quant Strategies**  
-  - Most short-term strategies (e.g., momentum breakouts, moving average crossovers) already work well with 5-minute data.  
-  - Generating signals and alerts off 5-minute intervals aligns with typical “intraday” monitoring use cases.
 
 
 ## 🌐 Public Data Source
