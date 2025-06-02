@@ -34,7 +34,7 @@ This project is organized into two distinct phases to balance development speed,
 ---
 ### Business Considerations for Phase 2 AWS Deployment
 
-The choice of AWS services and ingestion interval should be aligned with enterprise-specific factors such as:
+The choice of AWS services and 5 minute ingestion interval (not 1 minute) should be aligned with enterprise-specific factors such as:
 
 - **Budget Constraints:**  
   Serverless architectures (Lambda, Glue, Athena) provide pay-per-use pricing, ideal for organizations seeking cost control and elasticity without upfront infrastructure investment.
