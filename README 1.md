@@ -28,6 +28,9 @@ This project is organized into two distinct phases to balance development speed,
 > **Why split into two phases?**  
 > Phase 1 focuses on validating architecture and core logic in a low-cost, open-source environment (MinIO, Prefect, PySpark) so we can iterate quickly without incurring excessive cloud fees. Once the design is proven, Phase 2 migrates the pipeline to AWS for production‐grade needs—supporting serverless scaling, SLA compliance, and seamless integration with BI/ML services.
 
+> **Why MinIO in Phase 1?**  
+> MinIO is an open-source, S3-compatible object storage platform that can run locally or on any cloud provider (including Azure). By building on MinIO, the pipeline is cloud-agnostic and easily portable. This design choice reduces vendor lock-in, allowing future migration from AWS to other clouds (like Azure, GCP) with minimal storage layer changes.
+
 ---
 ### Business Considerations for Phase 2 AWS Deployment
 
