@@ -21,6 +21,35 @@ In the world of quantitative finance, timely access to high-quality trading data
 - Orchestration using Prefect with retry, alerting, and logging
 - Full containerization and reproducibility using Docker
 
+## 🔀 Project Phases
+
+This project is organized into two distinct phases to balance development speed, cost control, and production readiness:
+
+> **Why split into two phases?**  
+> Phase 1 focuses on validating architecture and core logic in a low-cost, open-source environment (MinIO, Prefect, PySpark) so we can iterate quickly without incurring excessive cloud fees. Once the design is proven, Phase 2 migrates the pipeline to AWS for production‐grade needs—real-time (1-minute) ingestion, serverless scaling, SLA compliance, and seamless integration with BI/ML services.
+---
+### Phase 1: Prototype & Validation (5-Minute Interval Pipeline)
+- **Goal**: Quickly build a proof-of-concept (POC) using open-source tools to validate overall design, test ingestion/transformation logic, and control costs.
+- **Key Activities**:
+  - Developed a config-driven Python API handler to fetch 5-minute interval data for multiple symbols.
+  - Orchestrated ingestion workflows with Prefect and applied PySpark transformations to clean, standardize, and write data into partitioned Parquet format.
+  - Structured a Bronze (raw JSON) layer and Silver (cleaned Parquet) layer on Delta Lake in MinIO, ensuring traceability and clean snapshots via schema evolution.
+  - Modeled a Gold layer by aggregating Silver data to compute trading signals (e.g., P/E Ratio Alert, Volume Spike % Alert) for strategy development.
+  - Implemented deduplication with incremental merge, partitioning, and late-arriving data correction to keep historical records consistent.
+  - Integrated Soda Core for data quality checks (freshness, null rates, duplication) via YAML-defined scan definitions.
+  - Containerized the entire pipeline using Docker Compose to ensure a reproducible dev environment compatible with future AWS migration.
+
+### Phase 2: AWS Migration & Productionization (1-Minute Interval)
+- **Goal**: Migrate the validated prototype to a serverless, fully managed AWS architecture for real-time, elastic, and SLA-compliant operations.
+- **Key Activities**:
+  - Refactored the Python API handler into an AWS Lambda function triggered by EventBridge (supporting 1-minute interval ingestion).
+  - Deployed transformation logic to AWS Glue (PySpark) with Delta Lake on S3, enabling serverless processing and scalable late-arriving data correction.
+  - Reused Soda YAML scan checks on Athena tables to enforce data freshness, duplication prevention, and schema consistency in production.
+  - Provided downstream analytics endpoints via Athena and QuickSight for Gold-layer factor dashboards, quantitative signals, and ML retraining pipelines.
+  - Ensured cost efficiency and operational scalability by leveraging Lambda, Glue, S3, EventBridge, and Athena in a pay-per-use serverless setup.
+
+
+
 ## ⏱ Why Use a 5-Minute Interval?
 
 When ingesting intraday stock data via Alpha Vantage, there are multiple interval options (1min, 5min, 15min, etc.). We chose **5 minutes** for the following main reasons:
@@ -55,8 +84,10 @@ https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol=AAPL&inte
 
 ---
 
-## 🛠️ 2. Platform & Implementation Summary
 
+
+## 🛠️ 2. Platform & Implementation Summary
+  
 ### 🔗 API Ingestion
 - **Source**: Alpha Vantage
 - **Implementation**: Python handler with dynamic URL generation in `api_utils/`
@@ -92,7 +123,7 @@ checks for silver_stock_clean:
 ---
 
 ## 🧱 3. Layered Data Lakehouse Architecture
-
+  
 This project uses a structured Lakehouse model to enable scalable analytics and data validation.
 
 - **Bronze Layer**: Raw intraday API payloads stored in Delta format
@@ -102,90 +133,155 @@ This project uses a structured Lakehouse model to enable scalable analytics and 
 
 ### 🖥️ Architecture Diagram
 ![Stock ETL Data Model](https://github.com/issaczhang2021/Real-time_Stock_Market_Monitoring_ETL_pipeline/blob/730dd9b33c94f3bbbe3ba230d6c367152a170136/Github.png)
-
+  
 ---
-
 ## 🎯 4. Design FAQ
 This project reflects key architectural and operational decisions as follows:
 
 - **Data Quality Assurance**  
-  Data quality is enforced using a YAML-based rule system that supports null checks, range validation, and type enforcement. These rules are embedded directly into the ETL workflow and trigger failure handling logic when violated.
+  Data quality is enforced using a YAML-based rule system that supports null checks, range validation, and type enforcement. In Phase 1, these checks run in Prefect via Soda Core against the Bronze/Silver Delta tables in MinIO. In Phase 2, the same Soda YAML scans run against Athena tables to validate freshness, null rates, and duplication in S3-backed Silver datasets.
 
 - **Handling Upstream API Failures or Incomplete Data**  
-  The pipeline is designed with retry logic and fault tolerance in mind. Prefect handles transient API failures gracefully, while downstream data quality gates prevent bad data from entering the lake.
+  - **Phase 1**: Prefect tasks retry failed API calls (e.g., due to 5-calls/min rate limits) and apply a “waiting window” before marking data as missing.  
+  - **Phase 2**: AWS Lambda functions are invoked by EventBridge with built-in retry logic. Failed Lambda executions trigger CloudWatch Alarms and can be replayed manually or via a dead-letter queue.
 
 - **Rationale for Using Delta Lake over Parquet**  
-  Delta Lake was chosen to ensure ACID compliance, support schema evolution, enable time travel, and provide performance optimizations like Z-ordering and file compaction—essential for maintaining a reliable analytics platform.
+  - **Phase 1**: Delta Lake in MinIO provides ACID compliance, schema evolution, and time travel for local prototyping.  
+  - **Phase 2**: Delta Lake on S3 via AWS Glue supports the same ACID guarantees at scale, with Glue catalog tables exposed in Athena for SQL analytics and QuickSight dashboards.
 
 - **Workflow Modularity and Orchestration**  
-  The ETL process is modularized into discrete, reusable Prefect tasks and flows, making the system maintainable and extensible. It supports scheduling, alerting, retries, and logging out-of-the-box.
+  - **Phase 1**: Prefect flows organize ingestion → cleaning → modeling tasks.  
+  - **Phase 2**: Serverless orchestration is split between EventBridge schedules (Lambda triggers) for ingestion and AWS Glue workflows (PySpark jobs) for batch transformations. Prefect is no longer required in production.
 
 - **Scalability Across Symbols and Volume**  
-  The architecture supports dynamic scaling by parallelizing ingestion by symbol. Spark handles data processing in a distributed fashion, and partitioning strategies ensure high performance at scale.
+  - **Phase 1**: Spark jobs running in Docker containers parallelize by symbol.  
+  - **Phase 2**: Lambda concurrency handles parallel API ingestion, and AWS Glue auto-scales to process large volumes of JSON or Parquet in S3. Athena partitions (by symbol, trade_date) ensure performant queries.
 
-- **Why Prefect over Airflow**: Simpler to set up and easier to deploy locally or on Docker. Ideal for lightweight workflows.
+- **Why Prefect over Airflow (Phase 1)**:  
+  - Lightweight, easy local Docker deployment, quick iteration.  
 
-- **Why Delta Lake**: Needed ACID compliance, time-travel, and scalable parquet storage.
+- **Why AWS Lambda & EventBridge (Phase 2)**:  
+  - True serverless, zero-ops ingestion. EventBridge cron rules support 1-minute intervals without managing servers.
 
-- **Why Bronze/Silver/Gold**: Enables clear separation of concerns, quality checkpoints, and scalable analytics.
+- **Why AWS Glue & Athena (Phase 2)**:  
+  - Glue’s PySpark integration with Delta on S3 enables elastic batch processing and late-arriving data correction. Athena provides interactive SQL on S3/Glue tables for downstream analytics without provisioning clusters.
+
+- **Why Delta Lake in AWS (Phase 2)**:  
+  - Maintains the same familiar Delta features (ACID, time travel) on top of S3. Glue Catalog integration enables schema management and versioned data.
+
+- **Why Bronze/Silver/Gold (Both Phases)**:  
+  - Separates raw payloads (traceability) from cleaned data (consistency) and aggregated metrics (dashboard/ML readiness). This layering enforces quality gates and clear audit trails.
 
 ---
+
 
 ## 🔁 5. Extensibility
+  
+- **Phase 1 (Local Prototype):**  
+  - Add new symbols by updating `config/config.ini`. Prefect flows automatically pick up new symbols for ingestion.  
+  - Extend to other asset classes (crypto, FX, news) by writing additional API handlers and incorporating them into the same Prefect/Spark framework.  
+  - Add ML feature computation in the Gold layer by appending new transform scripts under `pipelines/transform.py`.
 
-- Add more symbols with config only
-- Extend to crypto, FX, or news feeds
-- Plug output tables into BI tools
+- **Phase 2 (AWS Production):**  
+  - Add new symbols by updating the Lambda environment variable `SYMBOL_LIST` (or read from a DynamoDB table). EventBridge rules automatically trigger ingestion for all configured symbols.  
+  - Extend to new data sources (crypto, FX, news) by creating new Lambda functions or EventBridge rules, and updating Glue jobs to incorporate additional datasets into the Delta Lake on S3.  
+  - Integrate downstream ML pipelines by pointing SageMaker Processing jobs or Step Functions to the Gold-layer Athena tables.  
+  - Support additional AWS services (e.g., Kinesis for streaming or SNS for push alerts) by adding notification logic in Lambda or Glue jobs.
 
 ---
 
+  
 ## 🧪 6. Testing & Monitoring
+  
+- **Phase 1 (Local Testing):**  
+  - Unit tests for API handler logic (`api_utils/get_api_data.py`).  
+  - Prefect’s local test mode to validate workflow dependencies and edge cases.  
+  - Soda Core CLI scans in CI pipelines to catch schema violations before container builds.  
+  - Manual Docker Compose runs to verify Bronze/Silver/Gold writes and incremental merges.
 
-- Modular unit test support for ingestion and transformation
-- Prefect logs all task results and failure alerts
-- Sample datasets available in `/sample_files/`
+- **Phase 2 (AWS Monitoring):**  
+  - **Lambda Logs & Metrics**: Monitor invocation counts, error rates, and duration in CloudWatch. Configure CloudWatch Alarms for throttling or failures.  
+  - **Glue Job Monitoring**: Use Glue job runs and metrics (DPU usage, success/failure) in CloudWatch. Set alerts for failed runs or job timeouts.  
+  - **Athena Query Validation**: Schedule periodic AWS Glue Data Quality (Soda) scans via AWS Step Functions or a Lambda to run prebuilt SQL queries against Athena tables, checking for null rates, duplicate keys, and stale partitions.  
+  - **Cost Monitoring**: Use AWS Cost Explorer and budget alarms to track S3 storage growth, Glue DPU hours, and Lambda invocations.  
+  - **End-to-End SLA Checks**: Create CloudWatch Synthetic Canaries or Lambda heartbeats that test ingestion → transformation → table-availability in Athena, alerting on delays beyond SLA.
 
 ---
 
+  
 ## 🧰 7. Technology Stack
-- **Python**: Core scripting language
-- **PySpark**: Distributed data processing
-- **Alphavantage API**: Public financial data
-- **Delta Lake**: Scalable storage format with schema control
-- **MinIO/S3**: S3-compatible object store
-- **Prefect**: Modern orchestration engine
-- **Docker + Makefile**: For repeatable setup & execution
+  
+- **Phase 1 (Open-Source Prototype):**  
+  - **Python**: Core scripting, API handlers, Prefect flows  
+  - **PySpark**: Distributed data processing in Dockerized Spark containers  
+  - **Delta Lake**: ACID storage on MinIO (S3-compatible)  
+  - **MinIO**: Local S3-compatible object storage  
+  - **Prefect**: Workflow orchestration, retries, and logging  
+  - **Soda Core**: YAML-defined data quality checks  
+  - **Docker & Docker Compose**: Reproducible environment for local development  
+
+- **Phase 2 (AWS Production):**  
+  - **AWS Lambda**: Serverless ingestion with Python-based API handler (1-minute triggers via EventBridge)  
+  - **Amazon EventBridge**: Cron-based scheduler for Lambda invocations  
+  - **Amazon S3**: Scalable object storage for raw JSON and Parquet Delta tables  
+  - **AWS Glue (PySpark)**: Serverless ETL for cleaning, transformations, incremental merges, and late-arriving data correction with Delta Lake on S3  
+  - **AWS Glue Data Catalog**: Central metadata store for Delta tables, used by Athena and QuickSight  
+  - **Amazon Athena**: Interactive SQL analytics on S3-backed Delta tables for downstream dashboards and ML feature pipelines  
+  - **Amazon QuickSight**: BI dashboards for Gold-layer factor metrics and trading signals  
+  - **CloudWatch**: Centralized logging, metrics, and alarms for Lambda and Glue  
+  - **Soda Core (via Athena)**: Data quality checks on production datasets  
+  - **AWS CLI / Terraform (optional)**: Infrastructure-as-code for deploying Lambda, EventBridge, and Glue resources  
 
 ---
 
+
+  
 ## 📂 8. Project Structure
+
 ```
 spark_etl_JZ/
 ├── Dockerfile
 ├── docker-compose.yml
 ├── Makefile
-├── config/config.ini
-├── data_quality/trade.yml
+├── config/
+│ └── config.ini # Phase 1: 5-min interval symbols, API keys
+├── data_quality/
+│ └── trade.yml # Phase 1: Soda Core YAML checks
 ├── delta_tables/
-│   ├── create_bronze_layer.py
-│   └── create_silver_layer.py
-├── pipelines/
-│   ├── api_utils/
-│   │   ├── api_factory.py
-│   │   └── get_api_data.py
-│   ├── api_to_csv_flow.py
-│   ├── dq_utils.py
-│   ├── etl_utils.py
-│   ├── stock_etl.py
-│   └── transform.py
+│ ├── create_bronze_layer.py
+│ └── create_silver_layer.py
+├── pipelines/ # Phase 1 ETL code
+│ ├── api_utils/
+│ │ ├── api_factory.py
+│ │ └── get_api_data.py
+│ ├── api_to_csv_flow.py
+│ ├── dq_utils.py
+│ ├── etl_utils.py
+│ ├── stock_etl.py
+│ └── transform.py
 ├── sample_files/
-│   └── trade_*.csv
-└── README.md
+│ └── trade_*.csv
+├── README.md
+└── godata2023/ # Phase 2: AWS deployment artifacts
+└── AWS Deployment/
+├── fetch_stock_data.py # Lambda handler (1-min ingestion)
+├── glue_etl_job.py # Glue PySpark transformation job
+├── deploy/
+│ ├── build_lambda_package.sh # Package Lambda code
+│ ├── deploy_lambda.sh # Deploy Lambda & IAM role
+│ ├── create_eventbridge_rule.sh# Schedule Lambda trigger
+│ └── lambda_iam_policy.json # IAM policy for Lambda
+└── infrastructure/ # (Optional) Terraform/CF templates
+├── lambda.tf
+├── glue.tf
+└── eventbridge.tf
 ```
-
 ---
 
+
+  
 ## 🚀 9. Quick Start
+  
 ```bash
 git clone https://github.com/issaczhang2021/Real-time_Stock_Market_Monitoring_ETL_pipeline
 cd Real-time_Stock_Market_Monitoring_ETL_pipeline
@@ -198,7 +294,6 @@ docker-compose build
 ```bash
 docker-compose up
 ```
-
 ---
 
 ## 🔮 10. Future Work
