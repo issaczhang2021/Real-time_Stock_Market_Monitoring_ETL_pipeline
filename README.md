@@ -333,7 +333,7 @@ This section describes how to deploy the pipeline on AWS to support **5-minute i
 ### Architecture Overview
 
 ```
-EventBridge (Every 1 min)
+EventBridge (Every 5 min)
        ↓
  AWS Lambda (fetch_stock_data.py)
        ↓
@@ -457,7 +457,7 @@ bash deploy/create_eventbridge_rule.sh
 ```
 
 This will:
-- Create a 1-minute cron rule
+- Create a 5-minute cron rule
 - Authorize EventBridge to trigger your Lambda
 - Set EventBridge target to your Lambda function
 
