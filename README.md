@@ -331,21 +331,33 @@ This section describes how to deploy the pipeline on AWS to support **5-minute i
   No infrastructure management required, with fully managed execution, monitoring, and scaling.
 
 ### Architecture Overview
-
+#### Phase 1 (5-Minute Interval, Local Prototype)
 ```
-EventBridge (Every 5 min)
-       ↓
- AWS Lambda (fetch_stock_data.py)
-       ↓
+Prefect Scheduler (Every 5 min)
+↓
+PySpark Jobs (Dockerized Spark)
+↓
+Delta Lake on MinIO (Raw JSON → Cleaned Parquet)
+↓
+Bronze → Silver → Gold Tables
+↓
+Power BI / Tableau
+```
+#### Phase 2 (Configurable Interval, AWS Production)
+```
+EventBridge (Every 1–5 min, configurable)
+↓
+AWS Lambda (fetch_stock_data.py)
+↓
 Stock API (e.g., Alpha Vantage)
-       ↓
+↓
 Amazon S3 (Raw JSON: stock-raw-data/)
-       ↓
-(Optional) AWS Glue Job
-       ↓
+↓
+AWS Glue Job (Glue ETL)
+↓
 Amazon S3 (Cleaned Parquet: stock-cleaned-data/)
-       ↓
-Power BI / QuickSight / Athena
+↓
+Amazon Athena / QuickSight / Power BI
 ```
 
 ### Step-by-Step Deployment Instructions
