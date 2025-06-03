@@ -272,24 +272,34 @@ spark_etl_JZ/
 │ └── trade_*.csv
 ├── README.md
 └── godata2023/ # Phase 2: AWS deployment artifacts
-└── AWS Deployment/
-├── fetch_stock_data.py # Lambda handler (1-min ingestion)
-├── glue_etl_job.py # Glue PySpark transformation job
-├── deploy/
-│ ├── build_lambda_package.sh # Package Lambda code
-│ ├── deploy_lambda.sh # Deploy Lambda & IAM role
-│ ├── create_eventbridge_rule.sh# Schedule Lambda trigger
-│ └── lambda_iam_policy.json # IAM policy for Lambda
-└── infrastructure/ # (Optional) Terraform/CF templates
-├── lambda.tf
-├── glue.tf
-└── eventbridge.tf
+├── AWS Deployment/
+│ ├── fetch_stock_data.py # Lambda handler (configurable ingestion interval)
+│ ├── glue_etl_job.py # Glue PySpark transformation job
+│ ├── deploy/
+│ │ ├── build_lambda_package.sh # Package Lambda code
+│ │ ├── deploy_lambda.sh # Deploy Lambda & IAM role
+│ │ ├── create_eventbridge_rule.sh# Schedule Lambda trigger
+│ │ └── lambda_iam_policy.json # IAM policy for Lambda
+│ └── infrastructure/ # (Optional) Terraform/CloudFormation templates
+│ ├── lambda.tf
+│ ├── glue.tf
+│ └── eventbridge.tf
 ```
 ---
 
 
   
 ## 🚀 9. Quick Start
+
+- **This section describes how to deploy the pipeline on AWS to support 1-minute interval real-time data ingestion using a fully managed, serverless architecture.**
+
+Why Use AWS Serverless for This Project?
+  - **Real-Time Data Capture: Continuously fetch updated stock prices every minute from public APIs (e.g., Alpha Vantage) with low latency.
+
+  - **Cost-Effective: Utilizes AWS Free Tier services like Lambda, S3, EventBridge, and Glue with generous free limits.
+
+  - **Scalable & Serverless: No infrastructure management required, with fully managed execution, monitoring, and scaling.
+
   
 ```bash
 git clone https://github.com/issaczhang2021/Real-time_Stock_Market_Monitoring_ETL_pipeline
@@ -305,10 +315,90 @@ docker-compose up
 ```
 ---
 
-## 🔮 10. Future Work
-- Kafka-based real-time ingestion
-- Power BI/Tableau live integration
-- Push notification alerting
+## 10. AWS Deployment Overview
+
+This section describes how to deploy the pipeline on AWS to support **1-minute interval real-time data ingestion** using a fully managed, serverless architecture.
+
+### Why Use AWS Serverless for This Project?
+
+- **Real-Time Data Capture:**  
+  Continuously fetch updated stock prices every **minute** from public APIs (e.g., Alpha Vantage) with low latency.
+
+- **Cost-Effective:**  
+  Utilizes AWS Free Tier services like Lambda, S3, EventBridge, and Glue with generous free limits.
+
+- **Scalable & Serverless:**  
+  No infrastructure management required, with fully managed execution, monitoring, and scaling.
+
+### Architecture Overview
+
+```
+EventBridge (Every 1 min)
+       ↓
+ AWS Lambda (fetch_stock_data.py)
+       ↓
+Stock API (e.g., Alpha Vantage)
+       ↓
+Amazon S3 (Raw JSON: stock-raw-data/)
+       ↓
+(Optional) AWS Glue Job
+       ↓
+Amazon S3 (Cleaned Parquet: stock-cleaned-data/)
+       ↓
+Power BI / QuickSight / Athena
+```
+
+### Step-by-Step Deployment Instructions
+
+#### Package Lambda Function
+
+```bash
+cd godata2023/AWS\ Deployment
+bash deploy/build_lambda_package.sh
+```
+
+#### Deploy to AWS Lambda
+
+```bash
+bash deploy/deploy_lambda.sh
+```
+
+#### IAM Role Permissions
+
+See `deploy/lambda_iam_policy.json` for required permissions.
+
+#### Schedule with EventBridge
+
+```bash
+bash deploy/create_eventbridge_rule.sh
+```
+
+This sets up a 5-minute cron trigger for Lambda.
+
+### Optional: Glue Job for Batch Processing
+
+Glue PySpark job cleans and converts raw JSON to Parquet for downstream analytics.
+
+### Monitoring
+
+- Lambda logs via CloudWatch  
+- EventBridge Rule management  
+- Glue job run history  
+
+### Cost Summary
+
+| Service     | Free Tier                 |
+|-------------|---------------------------|
+| Lambda      | 1M invocations/month      |
+| S3          | 5GB storage/month         |
+| Glue        | 10 DPU hours/month        |
+| EventBridge | 100k invocations/month    |
+
+### Best Practices
+
+- Use environment variables for API keys  
+- Set CloudWatch alarms for failures  
+- Implement S3 lifecycle rules for data retention
 
 ## 🤝 11. Contribution
 - Open issues for bugs or feature requests
