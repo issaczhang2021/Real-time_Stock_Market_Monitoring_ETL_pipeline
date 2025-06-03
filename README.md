@@ -400,12 +400,102 @@ Glue PySpark job cleans and converts raw JSON to Parquet for downstream analytic
 - Set CloudWatch alarms for failures  
 - Implement S3 lifecycle rules for data retention
 
-## 🤝 11. Contribution
+
+
+
+## 11.Step-by-Step Deployment Instructions
+
+### Step 1: Package the Lambda Function
+
+```bash
+cd godata2023/AWS\ Deployment
+bash deploy/build_lambda_package.sh
+```
+
+This will:
+- Copy `fetch_stock_data.py`
+- Install `requests` and `boto3` into a temp folder
+- Zip everything into `lambda_function.zip`
+
+### Step 2: Deploy to AWS Lambda
+
+```bash
+bash deploy/deploy_lambda.sh
+```
+
+This script will:
+- Create an IAM role and attach `lambda_iam_policy.json`
+- Deploy the Lambda function using `lambda_function.zip`
+- Set handler to `fetch_stock_data.lambda_handler`
+
+### Step 3: IAM Role Permissions
+
+Filename: `deploy/lambda_iam_policy.json`
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+### Step 4: Schedule with EventBridge
+
+```bash
+bash deploy/create_eventbridge_rule.sh
+```
+
+This will:
+- Create a 1-minute cron rule
+- Authorize EventBridge to trigger your Lambda
+- Set EventBridge target to your Lambda function
+
+---
+
+## 🧪 Optional: Run Glue Job for Batch Processing
+
+If you want to clean and convert raw stock JSON data from S3:
+
+```python
+# glue_etl_job.py
+from awsglue.context import GlueContext
+from pyspark.context import SparkContext
+
+glueContext = GlueContext(SparkContext.getOrCreate())
+df = glueContext.create_dynamic_frame.from_options(
+    connection_type="s3",
+    connection_options={"paths": ["s3://stock-raw-data/"]},
+    format="json"
+)
+df_clean = df.drop_null_fields().drop_duplicates()
+glueContext.write_dynamic_frame.from_options(
+    frame=df_clean,
+    connection_type="s3",
+    connection_options={"path": "s3://stock-cleaned-data/"},
+    format="parquet"
+)
+```
+
+> ✅ Run this manually or set up Glue scheduling if needed.
+
+---
+## 🤝 12. Contribution
 - Open issues for bugs or feature requests
 - Submit PRs for enhancements or feedback
 
-## 📄 12. License
+## 📄 13. License
 Distributed under the MIT License. See `LICENSE` for full details.
 
-## 📄 13. License
+## 📄 14. License
 Distributed under the MIT License. See `LICENSE` for more details.
