@@ -315,7 +315,7 @@ docker-compose up
 ```
 ---
 
-## 10. AWS Deployment Overview
+## 📄 10. AWS Deployment Overview
 
 This section describes how to deploy the pipeline on AWS to support **5-minute interval real-time data ingestion** using a fully managed, serverless architecture.
 
@@ -403,7 +403,7 @@ Glue PySpark job cleans and converts raw JSON to Parquet for downstream analytic
 
 
 
-## 11.Step-by-Step Deployment Instructions
+## 📄 11.Step-by-Step Deployment Instructions
 
 ### Step 1: Package the Lambda Function
 
