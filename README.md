@@ -375,7 +375,7 @@ bash deploy/create_eventbridge_rule.sh
 
 This sets up a 5-minute cron trigger for Lambda.
 
-### Optional: Glue Job for Batch Processing
+### Glue Job for Batch Processing
 
 Glue PySpark job cleans and converts raw JSON to Parquet for downstream analytics.
 
