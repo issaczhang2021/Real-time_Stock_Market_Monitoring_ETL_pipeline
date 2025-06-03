@@ -317,7 +317,7 @@ docker-compose up
 
 ## 10. AWS Deployment Overview
 
-This section describes how to deploy the pipeline on AWS to support **1-minute interval real-time data ingestion** using a fully managed, serverless architecture.
+This section describes how to deploy the pipeline on AWS to support **5-minute interval real-time data ingestion** using a fully managed, serverless architecture.
 
 ### Why Use AWS Serverless for This Project?
 
