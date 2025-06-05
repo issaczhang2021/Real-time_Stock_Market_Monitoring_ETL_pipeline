@@ -272,7 +272,7 @@ spark_etl_JZ/
 │ └── trade_*.csv
 ├── README.md
 └── godata2023/ # Phase 2: AWS deployment artifacts
-├── AWS Deployment/
+├── aws_deployment/
 │ ├── fetch_stock_data.py # Lambda handler (configurable ingestion interval)
 │ ├── glue_etl_job.py # Glue PySpark transformation job
 │ ├── deploy/

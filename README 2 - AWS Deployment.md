@@ -45,7 +45,7 @@ Power BI / QuickSight / Athena
 ### Step 1: Package the Lambda Function
 
 ```bash
-cd godata2023/AWS\ Deployment
+cd godata2023/aws_deployment
 bash deploy/build_lambda_package.sh
 ```
 
