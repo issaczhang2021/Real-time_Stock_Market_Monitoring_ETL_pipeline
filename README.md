@@ -248,7 +248,7 @@ This project reflects key architectural and operational decisions as follows:
 ## 📂 8. Project Structure
 
 ```
-spark_etl_JZ/
+Real-time_Stock_Market_Monitoring_ETL_pipeline/
 ├── Dockerfile
 ├── docker-compose.yml
 ├── Makefile
