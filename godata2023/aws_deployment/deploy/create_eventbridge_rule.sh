@@ -1,4 +1,4 @@
-#!/bin/bash
+!/bin/bash
 set -e
 DIR=$(dirname "$0")
 FUNCTION_NAME=${FUNCTION_NAME:-StockDataFetcher}
