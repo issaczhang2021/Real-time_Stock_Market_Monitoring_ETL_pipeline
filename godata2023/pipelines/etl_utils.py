@@ -24,11 +24,15 @@ def ingest_data_to_delta(
 def read_data_from_delta(
     table_name: str,
     spark: SparkSession,
-    filter_confition: str=None,
+    filter_condition: str = None,
     storage_path='s3a://godata2023/delta'
     ):
-    if filter_confition:
-        df = spark.read.format("delta").load(f"{storage_path}/{table_name}").filter(filter_confition)
+    if filter_condition:
+        df = (
+            spark.read.format("delta")
+            .load(f"{storage_path}/{table_name}")
+            .filter(filter_condition)
+        )
     else:
         df = spark.read.format("delta").load(f"{storage_path}/{table_name}")
     return df
